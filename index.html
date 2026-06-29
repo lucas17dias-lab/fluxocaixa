@@ -457,8 +457,8 @@
     }
 
     let userDbRef = null;
-    const SHARED_PATH = 'shared_data';
-    const OWNER_UID = 'L2IQZ1rvshf0KngAlruThVgRjC03';
+    const SHARED_PATH = 'arkdex_v22';
+    const OWNER_UID = 'qJqC7YewepNVNJQ0bcQ1CxJLrDm1';
 
     function loadUserData() {
         userDbRef = database.ref(SHARED_PATH);
@@ -467,7 +467,7 @@
             if (data) {
                 db.gastos = data.gastos ? Object.values(data.gastos) : [];
                 db.fixos = data.fixos ? Object.values(data.fixos) : [];
-                db.cats = data.cats || ["GERAL", "MERCADO", "LAZER", "SAÚDE"];
+                db.cats = data.cats ? (Array.isArray(data.cats) ? data.cats : Object.values(data.cats)) : ["GERAL", "MERCADO", "LAZER", "SAÚDE"];
                 render();
             } else {
                 database.ref('users/' + OWNER_UID).once('value', ownerSnap => {
