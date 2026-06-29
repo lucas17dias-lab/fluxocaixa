@@ -1,0 +1,1013 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Fluxo de Caixa | Gestão Pessoal</title>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+
+    <style>
+        :root {
+            --bg: #0f172a; 
+            --sidebar-bg: #1e293b; 
+            --card-bg: #1e293b;
+            --primary: #38bdf8; 
+            --secondary: #a78bfa; 
+            --accent: #2dd4bf; 
+            --text-main: #f1f5f9; 
+            --text-dim: #94a3b8;
+            --border: #334155; 
+            --input-bg: #0f172a;
+            --danger: #f43f5e;
+            --warning: #f59e0b;
+            --pix: #00c7a3;
+            --debito: #38bdf8;
+            --credito: #a78bfa;
+            --dividido: #fb923c;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Plus Jakarta Sans', sans-serif; }
+        html, body { width: 100%; overflow-x: hidden; background-color: var(--bg); color: var(--text-main); }
+        body { min-height: 100vh; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+
+        #auth-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 80vh; width: 100%; }
+        .login-card { background: var(--card-bg); padding: 40px; border-radius: 28px; border: 1px solid var(--border); width: 100%; max-width: 400px; text-align: center; }
+
+        #app-screen { display: none; width: 100%; max-width: 900px; }
+        .dashboard { display: grid; grid-template-columns: 280px 1fr; gap: 24px; width: 100%; padding-bottom: 60px; }
+
+        .sidebar { background: var(--sidebar-bg); padding: 24px; border-radius: 24px; border: 1px solid var(--border); height: fit-content; position: sticky; top: 20px; }
+        .logo { display: flex; align-items: center; gap: 10px; font-weight: 800; color: var(--primary); font-size: 1.3rem; margin-bottom: 25px; letter-spacing: -0.5px; }
+        
+        .balance-card { background: linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(56, 189, 248, 0.05) 100%); padding: 20px; border-radius: 16px; border: 1px solid rgba(56, 189, 248, 0.2); margin-bottom: 20px; }
+        .balance-card span { font-size: 10px; font-weight: 800; color: var(--primary); text-transform: uppercase; letter-spacing: 1px; }
+        .balance-card h2 { font-size: 1.6rem; font-weight: 800; margin-top: 5px; color: #fff; }
+
+        .nav-btn { width: 100%; background: none; border: 1px solid transparent; color: var(--text-dim); padding: 14px; border-radius: 12px; cursor: pointer; display: flex; align-items: center; gap: 12px; font-size: 14px; font-weight: 600; margin-bottom: 8px; transition: 0.3s; }
+        .nav-btn.active { background: var(--primary); color: #000; box-shadow: 0 4px 15px rgba(56, 189, 248, 0.3); }
+        .nav-btn:hover:not(.active) { background: rgba(255,255,255,0.05); color: #fff; }
+
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 12px; border-bottom: 1px solid var(--border); width: 100%; }
+        .section-title { display: flex; align-items: center; gap: 10px; font-size: 1.1rem; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        .month-selector { background: var(--card-bg); padding: 6px 14px; border-radius: 100px; border: 1px solid var(--border); display: flex; align-items: center; gap: 10px; }
+        #monthLabel { font-size: 12px; font-weight: 700; color: var(--primary); min-width: 110px; text-align: center; text-transform: capitalize; }
+
+        .content-area { display: none; flex-direction: column; gap: 20px; width: 100%; }
+        .content-area.active { display: flex; }
+
+        .card { background: var(--card-bg); padding: 24px; border-radius: 20px; border: 1px solid var(--border); width: 100%; }
+        .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; width: 100%; }
+        .full { grid-column: span 2; }
+
+        label { font-size: 11px; font-weight: 800; color: var(--text-dim); margin-bottom: 5px; display: block; text-transform: uppercase; }
+        input, select, textarea { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid var(--border); background: var(--input-bg); color: #fff; outline: none; font-size: 14px; transition: 0.2s; }
+        input:focus, select:focus { border-color: var(--primary); }
+        
+        .btn-main { width: 100%; background: var(--primary); color: #000; border: none; padding: 14px; border-radius: 12px; font-weight: 800; cursor: pointer; transition: 0.2s; text-transform: uppercase; }
+        .btn-main:hover { filter: brightness(1.1); transform: translateY(-1px); }
+
+        /* ===== PAGAMENTO SELECTOR ===== */
+        .pgto-selector { display: flex; gap: 8px; width: 100%; flex-wrap: wrap; }
+        .pgto-btn {
+            flex: 1; min-width: 70px; padding: 10px 6px; border-radius: 10px;
+            border: 1.5px solid var(--border); background: var(--input-bg);
+            color: var(--text-dim); cursor: pointer; font-size: 11px; font-weight: 800;
+            text-transform: uppercase; letter-spacing: 0.3px;
+            display: flex; flex-direction: column; align-items: center; gap: 5px;
+            transition: 0.2s; text-align: center;
+        }
+        .pgto-btn:hover { border-color: var(--text-dim); color: #fff; }
+        .pgto-btn.active[data-pgto="pix"]     { border-color: var(--pix); color: var(--pix); background: rgba(0,199,163,0.1); }
+        .pgto-btn.active[data-pgto="debito"]  { border-color: var(--debito); color: var(--debito); background: rgba(56,189,248,0.1); }
+        .pgto-btn.active[data-pgto="credito"] { border-color: var(--credito); color: var(--credito); background: rgba(167,139,250,0.1); }
+        .pgto-btn.active[data-pgto="dividido"]{ border-color: var(--dividido); color: var(--dividido); background: rgba(251,146,60,0.1); }
+        .pgto-btn svg { pointer-events: none; }
+
+        /* Campos extras de pagamento */
+        .pgto-extra { display: none; flex-direction: column; gap: 12px; width: 100%; animation: fadeSlide 0.2s ease; }
+        .pgto-extra.visible { display: flex; }
+        @keyframes fadeSlide { from { opacity:0; transform:translateY(-6px); } to { opacity:1; transform:translateY(0); } }
+
+        .parcelas-row { display: flex; align-items: center; gap: 10px; }
+        .parcelas-row input[type=range] { flex: 1; accent-color: var(--credito); }
+        .parcelas-badge {
+            background: rgba(167,139,250,0.15); border: 1px solid var(--credito);
+            color: var(--credito); font-size: 12px; font-weight: 800;
+            padding: 6px 14px; border-radius: 8px; white-space: nowrap; min-width: 60px; text-align: center;
+        }
+
+        .dividido-row { display: grid; grid-template-columns: 1fr auto 1fr; gap: 10px; align-items: end; }
+        .dividido-row .mid { display: flex; align-items: center; justify-content: center; padding-bottom: 12px; color: var(--text-dim); font-weight: 800; font-size: 13px; }
+        .dividido-sub { display: flex; flex-direction: column; gap: 8px; }
+
+        /* Badge de pagamento no item da lista */
+        .pgto-badge {
+            display: inline-flex; align-items: center; gap: 4px;
+            font-size: 9px; font-weight: 800; padding: 2px 8px; border-radius: 6px;
+            text-transform: uppercase; letter-spacing: 0.5px; margin-top: 3px;
+        }
+        .pgto-badge.pix      { background: rgba(0,199,163,0.15); color: var(--pix); }
+        .pgto-badge.debito   { background: rgba(56,189,248,0.15); color: var(--debito); }
+        .pgto-badge.credito  { background: rgba(167,139,250,0.15); color: var(--credito); }
+        .pgto-badge.dividido { background: rgba(251,146,60,0.15); color: var(--dividido); }
+
+        /* ===== FIM PAGAMENTO ===== */
+
+        .date-group { margin-top: 25px; width: 100%; }
+        .date-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; width: 100%; }
+        .date-header .txt-date { font-size: 14px; font-weight: 800; color: var(--primary); }
+        .date-header .txt-weekday { font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase; background: rgba(45, 212, 191, 0.1); padding: 2px 8px; border-radius: 6px; }
+
+        .item { background: var(--card-bg); padding: 12px 15px; border-radius: 16px; border: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; width: 100%; }
+        .item-info { flex: 1; min-width: 0; padding-right: 10px; }
+        .item-info b { font-size: 13px; display: block; color: #fff; text-transform: uppercase; letter-spacing: 0.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .item-info p { font-size: 10px; color: var(--accent); margin-top: 2px; font-weight: 600; font-style: italic; }
+        .price { font-weight: 800; font-size: 1rem; color: #fff; white-space: nowrap; }
+
+        .actions { display: flex; gap: 8px; margin-left: 15px; }
+        .btn-action { width: 32px; height: 32px; border-radius: 10px; border: 1px solid var(--border); background: rgba(15, 23, 42, 0.5); color: var(--text-dim); cursor: pointer; display: flex; align-items: center; justify-content: center; transition: 0.3s; }
+        .btn-action:hover.edit { color: var(--warning); border-color: var(--warning); background: rgba(245, 158, 11, 0.1); }
+        .btn-action:hover.del { color: var(--danger); border-color: var(--danger); background: rgba(244, 63, 94, 0.1); }
+
+        .chart-row { margin-bottom: 20px; }
+        .chart-label { display: flex; justify-content: space-between; font-size: 12px; font-weight: 700; margin-bottom: 8px; text-transform: uppercase; }
+        .chart-bar-bg { background: var(--input-bg); height: 12px; border-radius: 100px; width: 100%; border: 1px solid var(--border); overflow: hidden; }
+        .chart-bar-fill { background: linear-gradient(90deg, var(--primary), var(--accent)); height: 100%; border-radius: 100px; transition: width 1s ease-out; }
+
+        .modal { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 1000; backdrop-filter: blur(8px); padding: 20px; }
+        .modal.active { display: flex; }
+        .modal-box { background: var(--card-bg); padding: 32px; border-radius: 28px; width: 100%; max-width: 380px; border: 1px solid var(--border); text-align: center; }
+
+        .filtro-bar { display: flex; gap: 10px; width: 100%; margin-bottom: 5px; }
+        .filtro-bar input, .filtro-bar select { padding: 10px 14px; font-size: 13px; }
+
+        .item.agendado { border-color: var(--warning); background: rgba(245, 158, 11, 0.06); }
+        .badge-agendado { font-size: 9px; font-weight: 800; color: var(--warning); background: rgba(245, 158, 11, 0.15); padding: 2px 8px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px; display: inline-block; margin-top: 3px; }
+        .agendados-banner { background: rgba(245,158,11,0.10); border: 1px solid var(--warning); border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 700; color: var(--warning); margin-bottom: 10px; }
+        .modal-edit-cat { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); align-items:center; justify-content:center; z-index:1001; backdrop-filter:blur(8px); padding:20px; }
+        .modal-edit-cat.active { display:flex; }
+
+        .busca-global-banner { background: rgba(56,189,248,0.08); border: 1px solid var(--primary); border-radius: 14px; padding: 10px 16px; display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: 700; color: var(--primary); margin-bottom: 10px; }
+
+        #toast {
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(80px);
+            background: #1e293b; border: 1px solid var(--border); color: #fff;
+            padding: 12px 22px; border-radius: 100px; font-size: 13px; font-weight: 700;
+            display: flex; align-items: center; gap: 8px; z-index: 9999;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+            transition: transform 0.35s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.35s ease;
+            opacity: 0; pointer-events: none; white-space: nowrap;
+        }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        #toast.success { border-color: var(--accent); color: var(--accent); }
+        #toast.warning { border-color: var(--danger); color: var(--danger); }
+
+        .evolucao-mobile { display: none; flex-direction: column; gap: 10px; }
+        .evolucao-mobile-item { display: flex; align-items: center; gap: 12px; }
+        .evolucao-mobile-label { font-size: 11px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; width: 36px; flex-shrink: 0; }
+        .evolucao-mobile-label.atual { color: var(--primary); }
+        .evolucao-mobile-bar-wrap { flex: 1; background: var(--input-bg); border-radius: 100px; height: 14px; border: 1px solid var(--border); overflow: hidden; }
+        .evolucao-mobile-bar { height: 100%; border-radius: 100px; transition: width 0.8s ease-out; }
+        .evolucao-mobile-val { font-size: 11px; font-weight: 800; color: #fff; white-space: nowrap; min-width: 90px; text-align: right; }
+
+        @media (max-width: 768px) { 
+            body { padding: 15px; }
+            .dashboard { display: block; width: 100%; } 
+            .sidebar { position: relative; top: 0; margin-bottom: 20px; width: 100%; border-radius: 20px; } 
+            .content-area { width: 100% !important; }
+            .content-area.active { display: flex; }
+            .form-grid { grid-template-columns: 1fr; }
+            .full { grid-column: span 1; }
+            .section-header { flex-direction: column; gap: 15px; align-items: flex-start; }
+            .month-selector { width: 100%; justify-content: space-between; }
+            #evolucaoChartBars { display: none !important; }
+            .evolucao-mobile { display: flex; }
+            #toast { bottom: 20px; font-size: 12px; padding: 10px 18px; max-width: 90vw; white-space: normal; text-align: center; }
+            .dividido-row { grid-template-columns: 1fr; }
+            .dividido-row .mid { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div id="auth-screen">
+    <div class="login-card">
+        <div style="color: var(--primary); margin-bottom: 20px;"><i data-lucide="shield-check" size="48"></i></div>
+        <h2 style="margin-bottom: 10px;">Gestão de Caixa</h2>
+        <div style="text-align: left;">
+            <label>E-mail</label><input type="email" id="loginEmail" placeholder="seu@email.com" style="margin-bottom: 15px;">
+            <label>Senha</label><input type="password" id="loginPass" placeholder="******">
+        </div>
+        <button class="btn-main" onclick="handleAuth()" style="margin-top: 20px;">ENTRAR</button>
+        <p id="authError" style="color: var(--danger); font-size: 12px; margin-top: 15px; font-weight: 700;"></p>
+    </div>
+</div>
+
+<div id="app-screen">
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="logo"><i data-lucide="trending-up"></i> FLUXO DE CAIXA</div>
+            <div class="balance-card">
+                <span>gasto total no mês</span>
+                <h2 id="totalDisplay">R$ 0,00</h2>
+            </div>
+            <nav>
+                <button class="nav-btn active" onclick="switchTab('tab-gastos', this)"><i data-lucide="list"></i> LANÇAMENTOS</button>
+                <button class="nav-btn" onclick="switchTab('tab-fixos', this)"><i data-lucide="calendar"></i> CUSTOS FIXOS</button>
+                <button class="nav-btn" onclick="switchTab('tab-graficos', this)"><i data-lucide="pie-chart"></i> RELATÓRIOS</button>
+                <button class="nav-btn" onclick="switchTab('tab-cats', this)"><i data-lucide="tags"></i> CATEGORIAS</button>
+                <button class="nav-btn" onclick="logout()" style="color: var(--danger); margin-top: 20px;"><i data-lucide="log-out"></i> SAIR</button>
+            </nav>
+        </aside>
+
+        <main id="tab-gastos" class="content-area active">
+            <div class="section-header">
+                <div class="section-title"><i data-lucide="activity"></i> Novo Lançamento</div>
+                <div class="month-selector">
+                    <button class="btn-action" style="border:none" onclick="changeMonth(-1)"><i data-lucide="chevron-left" size="16"></i></button>
+                    <span id="monthLabel"></span>
+                    <button class="btn-action" style="border:none" onclick="changeMonth(1)"><i data-lucide="chevron-right" size="16"></i></button>
+                </div>
+            </div>
+            <div class="card">
+                <input type="hidden" id="editId">
+                <div class="form-grid">
+                    <div class="full"><label>o que você comprou?</label><input type="text" id="gDesc" placeholder="Ex: Mercado, Combustível, Jantar..."></div>
+                    <div><label>quanto custou? (r$)</label><input type="text" inputmode="decimal" id="gVal" placeholder="0,00" oninput="formatarValor(this)"></div>
+                    <div><label>escolha a categoria</label><select id="gCat"></select></div>
+                    <div class="full"><label>data da compra</label><input type="date" id="gDate"></div>
+
+                    <!-- FORMA DE PAGAMENTO -->
+                    <div class="full">
+                        <label>forma de pagamento</label>
+                        <div class="pgto-selector">
+                            <button type="button" class="pgto-btn active" data-pgto="pix" onclick="selectPgto('pix', this)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>
+                                PIX
+                            </button>
+                            <button type="button" class="pgto-btn" data-pgto="debito" onclick="selectPgto('debito', this)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                                DÉBITO
+                            </button>
+                            <button type="button" class="pgto-btn" data-pgto="credito" onclick="selectPgto('credito', this)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><rect x="1" y="4" width="22" height="16" rx="2"/><circle cx="12" cy="14" r="3"/></svg>
+                                CRÉDITO
+                            </button>
+                            <button type="button" class="pgto-btn" data-pgto="dividido" onclick="selectPgto('dividido', this)">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="2" x2="12" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                DIVIDIR
+                            </button>
+                        </div>
+                        <input type="hidden" id="gPgto" value="pix">
+                    </div>
+
+                    <!-- CRÉDITO: parcelas -->
+                    <div class="pgto-extra full" id="extraCredito">
+                        <div style="display:flex; align-items:center; gap:12px;">
+                            <label style="margin:0; white-space:nowrap;">parcelas</label>
+                            <div class="parcelas-row" style="flex:1">
+                                <input type="range" id="gParcelas" min="1" max="24" value="1" oninput="updateParcelasLabel()">
+                                <span class="parcelas-badge" id="parcelasLabel">1x</span>
+                            </div>
+                        </div>
+                        <div id="parcelasValorInfo" style="font-size:11px; color:var(--credito); font-weight:700; display:none;"></div>
+                    </div>
+
+                    <!-- DIVIDIDO: 2 formas -->
+                    <div class="pgto-extra full" id="extraDividido">
+                        <div class="dividido-row">
+                            <div class="dividido-sub">
+                                <label>1ª forma</label>
+                                <select id="gDiv1Tipo" onchange="checkDiv1Parcelas()">
+                                    <option value="pix">PIX</option>
+                                    <option value="debito">Débito</option>
+                                    <option value="credito">Crédito</option>
+                                </select>
+                                <input type="text" inputmode="decimal" id="gDiv1Val" placeholder="R$ 0,00" oninput="formatarValor(this); calcDividido()">
+                                <!-- parcelas crédito na 1ª forma -->
+                                <div id="div1ParcelasWrap" style="display:none; margin-top:6px;">
+                                    <label>parcelas (1ª forma)</label>
+                                    <div class="parcelas-row">
+                                        <input type="range" id="gDiv1Parcelas" min="1" max="24" value="1" oninput="updateDiv1Label()">
+                                        <span class="parcelas-badge" id="div1ParcelasLabel" style="border-color:var(--credito);color:var(--credito)">1x</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="mid">+</div>
+                            <div class="dividido-sub">
+                                <label>2ª forma</label>
+                                <select id="gDiv2Tipo" onchange="checkDiv2Parcelas()">
+                                    <option value="pix">PIX</option>
+                                    <option value="debito">Débito</option>
+                                    <option value="credito">Crédito</option>
+                                </select>
+                                <input type="text" inputmode="decimal" id="gDiv2Val" placeholder="R$ 0,00" oninput="formatarValor(this); calcDividido()">
+                                <!-- parcelas crédito na 2ª forma -->
+                                <div id="div2ParcelasWrap" style="display:none; margin-top:6px;">
+                                    <label>parcelas (2ª forma)</label>
+                                    <div class="parcelas-row">
+                                        <input type="range" id="gDiv2Parcelas" min="1" max="24" value="1" oninput="updateDiv2Label()">
+                                        <span class="parcelas-badge" id="div2ParcelasLabel" style="border-color:var(--credito);color:var(--credito)">1x</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="dividido-aviso" style="font-size:11px; color:var(--text-dim); font-weight:700; margin-top:4px;"></div>
+                    </div>
+
+                    <div class="full"><label>anotações (opcional)</label><textarea id="gObs" placeholder="Ex: Cartão de crédito, parcelado em 2x..."></textarea></div>
+                    <button class="btn-main full" id="btnGasto" onclick="saveGasto()">SALVAR LANÇAMENTO</button>
+                </div>
+            </div>
+            <div class="filtro-bar">
+                <input type="text" id="filtroTexto" placeholder="🔍 Buscar lançamento..." oninput="render()" style="flex:1">
+                <select id="filtroCat" onchange="render()" style="width:160px;"><option value="">Todas categorias</option></select>
+            </div>
+            <div id="listaGastos" style="width: 100%;"></div>
+        </main>
+
+        <main id="tab-graficos" class="content-area">
+            <div class="section-header"><div class="section-title" style="color: var(--primary)"><i data-lucide="bar-chart-3"></i> Resumo Mensal</div>
+                <button class="btn-main" onclick="exportarPDF()" style="width:auto;padding:8px 18px;font-size:12px;"><i data-lucide="download" size="14" style="display:inline;vertical-align:middle;margin-right:4px;"></i> PDF</button>
+            </div>
+            <div class="card" id="chartContainer"></div>
+            <div class="card" id="evolucaoContainer" style="margin-top:0;">
+                <div style="font-size:11px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:16px;">Evolução — Últimos 6 meses</div>
+                <div id="evolucaoChart"></div>
+            </div>
+            <div class="card" id="comparativoContainer" style="margin-top:0;"></div>
+        </main>
+
+        <main id="tab-fixos" class="content-area">
+            <div class="section-header"><div class="section-title" style="color: var(--secondary)"><i data-lucide="repeat"></i> Contas Fixas Mensais</div></div>
+            <div class="card" style="border-style:dashed; border-color: var(--secondary);">
+                <input type="hidden" id="editFixoId">
+                <div class="form-grid">
+                    <div class="full"><label>nome da conta fixa</label><input type="text" id="fDesc" placeholder="Ex: Aluguel, Internet, Netflix..."></div>
+                    <div><label>valor estimado (r$)</label><input type="text" inputmode="decimal" id="fVal" placeholder="0,00" oninput="formatarValor(this)"></div>
+                    <div><label>categoria da conta</label><select id="fCat"></select></div>
+                    <button class="btn-main full" id="btnFixo" style="background: var(--secondary)" onclick="saveFixo()">SALVAR CONTA FIXA</button>
+                </div>
+            </div>
+            <div id="listaFixos"></div>
+        </main>
+
+        <main id="tab-cats" class="content-area">
+            <div class="section-header"><div class="section-title" style="color: var(--accent)"><i data-lucide="layers"></i> Gerenciar Categorias</div></div>
+            <div class="card">
+                <label>nome da nova categoria</label>
+                <div style="display:flex; gap:10px">
+                    <input type="text" id="newCatInput" placeholder="Ex: Viagens, Pets, Saúde..." style="flex:1">
+                    <button class="btn-main" style="width:130px; background: var(--accent)" onclick="addCat()">ADICIONAR</button>
+                </div>
+            </div>
+            <div id="catManagerList" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-top: 20px;"></div>
+        </main>
+    </div>
+</div>
+
+<div id="toast"><span id="toastIcon"></span><span id="toastMsg"></span></div>
+
+<div id="confirmModal" class="modal">
+    <div class="modal-box">
+        <div style="color: var(--danger); margin-bottom: 15px;"><i data-lucide="alert-triangle" size="48" style="margin: 0 auto;"></i></div>
+        <h3>Confirmar Exclusão?</h3>
+        <div style="display:flex; gap:12px; margin-top:25px">
+            <button class="btn-main" style="background:var(--border); color:#fff" onclick="closeModal()">CANCELAR</button>
+            <button class="btn-main" style="background:var(--danger); color:#fff" id="confirmDeleteBtn">EXCLUIR</button>
+        </div>
+    </div>
+</div>
+
+<div id="editCatModal" class="modal-edit-cat">
+    <div class="modal-box">
+        <h3 style="margin-bottom:20px;">Editar Categoria</h3>
+        <input type="hidden" id="editCatOld">
+        <label>Novo nome</label>
+        <input type="text" id="editCatNew" placeholder="Novo nome..." style="margin-bottom:20px;">
+        <div style="display:flex; gap:12px; margin-top:10px">
+            <button class="btn-main" style="background:var(--border); color:#fff" onclick="closeEditCatModal()">CANCELAR</button>
+            <button class="btn-main" style="background:var(--accent);" onclick="saveEditCat()">SALVAR</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyAkd0Tjn7yVZpoPTDCGzZ-HdtGzFywnKmw",
+        authDomain: "fluxocaixa-ae436.firebaseapp.com",
+        databaseURL: "https://fluxocaixa-ae436-default-rtdb.firebaseio.com",
+        projectId: "fluxocaixa-ae436",
+        storageBucket: "fluxocaixa-ae436.firebasestorage.app",
+        messagingSenderId: "116209202150",
+        appId: "1:116209202150:web:26da007eb215ea2f925c27"
+    };
+
+    firebase.initializeApp(firebaseConfig);
+    const auth = firebase.auth();
+    const database = firebase.database();
+
+    let currentUser = null;
+    let viewYear = new Date().getFullYear();
+    let viewMonth = new Date().getMonth();
+    let db = { gastos: [], fixos: [], cats: ["GERAL", "MERCADO", "LAZER", "SAÚDE"] };
+    let pendingDelete = { id: null, type: null };
+
+    auth.onAuthStateChanged(user => {
+        if (user) {
+            currentUser = user;
+            document.getElementById('auth-screen').style.display = 'none';
+            document.getElementById('app-screen').style.display = 'block';
+            const hoje = new Date();
+            const dataLocal = hoje.getFullYear() + '-'
+                + String(hoje.getMonth() + 1).padStart(2, '0') + '-'
+                + String(hoje.getDate()).padStart(2, '0');
+            document.getElementById('gDate').value = dataLocal;
+            loadUserData();
+        } else {
+            currentUser = null;
+            db = { gastos: [], fixos: [], cats: ["GERAL", "MERCADO", "LAZER", "SAÚDE"] };
+            document.getElementById('auth-screen').style.display = 'flex';
+            document.getElementById('app-screen').style.display = 'none';
+            document.getElementById('loginEmail').value = '';
+            document.getElementById('loginPass').value = '';
+            document.getElementById('authError').innerText = '';
+        }
+        lucide.createIcons();
+    });
+
+    async function handleAuth() {
+        const email = document.getElementById('loginEmail').value;
+        const pass = document.getElementById('loginPass').value;
+        const errorDiv = document.getElementById('authError');
+        errorDiv.innerText = '';
+        try { await auth.signInWithEmailAndPassword(email, pass); }
+        catch (e) { errorDiv.innerText = 'E-mail ou senha incorretos.'; }
+    }
+
+    function logout() {
+        if (userDbRef) { userDbRef.off(); userDbRef = null; }
+        auth.signOut();
+    }
+
+    let userDbRef = null;
+    const SHARED_PATH = 'shared_data';
+    const OWNER_UID = 'FQ2KD2mTZuhGKYbGmxswDFvuHjn1';
+
+    function loadUserData() {
+        userDbRef = database.ref(SHARED_PATH);
+        userDbRef.on('value', snapshot => {
+            const data = snapshot.val();
+            if (data) {
+                db.gastos = data.gastos ? Object.values(data.gastos) : [];
+                db.fixos = data.fixos ? Object.values(data.fixos) : [];
+                db.cats = data.cats || ["GERAL", "MERCADO", "LAZER", "SAÚDE"];
+                render();
+            } else {
+                database.ref('users/' + OWNER_UID).once('value', ownerSnap => {
+                    const ownerData = ownerSnap.val();
+                    if (ownerData) { database.ref(SHARED_PATH).set(ownerData); }
+                    else { db = { gastos: [], fixos: [], cats: ["GERAL", "MERCADO", "LAZER", "SAÚDE"] }; database.ref(SHARED_PATH).set(db); }
+                });
+            }
+        });
+    }
+
+    function sync() { if(currentUser) database.ref(SHARED_PATH).set(db); }
+
+    // ===== PAGAMENTO =====
+    function selectPgto(tipo, btn) {
+        document.querySelectorAll(".pgto-btn").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        document.getElementById("gPgto").value = tipo;
+        document.getElementById("extraCredito").classList.toggle("visible", tipo === "credito");
+        document.getElementById("extraDividido").classList.toggle("visible", tipo === "dividido");
+        const gValEl = document.getElementById("gVal");
+        if (tipo === "dividido") {
+            gValEl.disabled = true;
+            gValEl.style.opacity = "0.4";
+            gValEl.style.cursor = "not-allowed";
+            gValEl.placeholder = "calculado automaticamente";
+            calcDividido();
+        } else {
+            gValEl.disabled = false;
+            gValEl.style.opacity = "1";
+            gValEl.style.cursor = "";
+            gValEl.placeholder = "0,00";
+            if (tipo !== "dividido") document.getElementById("dividido-aviso").innerText = "";
+        }
+    }
+
+    function updateParcelasLabel() {
+        const v = document.getElementById('gParcelas').value;
+        document.getElementById('parcelasLabel').innerText = v + 'x';
+        // mostra valor por parcela
+        const total = getValorNumerico('gVal');
+        const infoEl = document.getElementById('parcelasValorInfo');
+        if (!isNaN(total) && total > 0 && parseInt(v) > 1) {
+            const por = total / parseInt(v);
+            infoEl.innerText = `→ ${v}x de R$ ${por.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+            infoEl.style.display = 'block';
+        } else {
+            infoEl.style.display = 'none';
+        }
+    }
+
+    function updateDiv1Label() {
+        document.getElementById('div1ParcelasLabel').innerText = document.getElementById('gDiv1Parcelas').value + 'x';
+    }
+    function updateDiv2Label() {
+        document.getElementById('div2ParcelasLabel').innerText = document.getElementById('gDiv2Parcelas').value + 'x';
+    }
+
+    function checkDiv1Parcelas() {
+        document.getElementById('div1ParcelasWrap').style.display =
+            document.getElementById('gDiv1Tipo').value === 'credito' ? 'block' : 'none';
+    }
+    function checkDiv2Parcelas() {
+        document.getElementById('div2ParcelasWrap').style.display =
+            document.getElementById('gDiv2Tipo').value === 'credito' ? 'block' : 'none';
+    }
+
+    function calcDividido() {
+        const v1 = getValorNumerico('gDiv1Val');
+        const v2 = getValorNumerico('gDiv2Val');
+        const soma = (isNaN(v1)?0:v1) + (isNaN(v2)?0:v2);
+        // Auto-preenche o campo total
+        const gValEl = document.getElementById('gVal');
+        gValEl.value = soma > 0 ? soma.toFixed(2).replace('.', ',') : '';
+        // Feedback visual
+        const aviso = document.getElementById('dividido-aviso');
+        if (soma > 0) {
+            aviso.innerText = `✓ Total calculado automaticamente: R$ ${soma.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+            aviso.style.color = 'var(--accent)';
+        } else {
+            aviso.innerText = '';
+        }
+    }
+
+    function getPgtoData() {
+        const tipo = document.getElementById('gPgto').value;
+        if (tipo === 'credito') {
+            return { tipo, parcelas: parseInt(document.getElementById('gParcelas').value) };
+        }
+        if (tipo === 'dividido') {
+            const t1 = document.getElementById('gDiv1Tipo').value;
+            const t2 = document.getElementById('gDiv2Tipo').value;
+            return {
+                tipo,
+                parte1: {
+                    tipo: t1,
+                    val: getValorNumerico('gDiv1Val') || 0,
+                    parcelas: t1 === 'credito' ? parseInt(document.getElementById('gDiv1Parcelas').value) : null
+                },
+                parte2: {
+                    tipo: t2,
+                    val: getValorNumerico('gDiv2Val') || 0,
+                    parcelas: t2 === 'credito' ? parseInt(document.getElementById('gDiv2Parcelas').value) : null
+                }
+            };
+        }
+        return { tipo };
+    }
+
+    function setPgtoForm(pgto) {
+        if (!pgto) pgto = { tipo: 'pix' };
+        // Seleciona o botão correto
+        document.querySelectorAll('.pgto-btn').forEach(b => b.classList.remove('active'));
+        const btn = document.querySelector(`.pgto-btn[data-pgto="${pgto.tipo}"]`);
+        if (btn) btn.classList.add('active');
+        document.getElementById('gPgto').value = pgto.tipo;
+        document.getElementById('extraCredito').classList.toggle('visible', pgto.tipo === 'credito');
+        document.getElementById('extraDividido').classList.toggle('visible', pgto.tipo === 'dividido');
+        // Habilita/desabilita campo total conforme modo
+        const gValEl = document.getElementById("gVal");
+        if (pgto.tipo === "dividido") {
+            gValEl.disabled = true; gValEl.style.opacity = "0.4"; gValEl.style.cursor = "not-allowed"; gValEl.placeholder = "calculado automaticamente";
+        } else {
+            gValEl.disabled = false; gValEl.style.opacity = "1"; gValEl.style.cursor = ""; gValEl.placeholder = "0,00";
+        }
+
+        if (pgto.tipo === 'credito') {
+            document.getElementById('gParcelas').value = pgto.parcelas || 1;
+            updateParcelasLabel();
+        }
+        if (pgto.tipo === 'dividido' && pgto.parte1) {
+            document.getElementById('gDiv1Tipo').value = pgto.parte1.tipo || 'pix';
+            document.getElementById('gDiv1Val').value = pgto.parte1.val ? pgto.parte1.val.toFixed(2).replace('.', ',') : '';
+            document.getElementById('gDiv2Tipo').value = pgto.parte2.tipo || 'pix';
+            document.getElementById('gDiv2Val').value = pgto.parte2.val ? pgto.parte2.val.toFixed(2).replace('.', ',') : '';
+            if (pgto.parte1.parcelas) { document.getElementById('gDiv1Parcelas').value = pgto.parte1.parcelas; updateDiv1Label(); }
+            if (pgto.parte2.parcelas) { document.getElementById('gDiv2Parcelas').value = pgto.parte2.parcelas; updateDiv2Label(); }
+            checkDiv1Parcelas(); checkDiv2Parcelas();
+        }
+    }
+
+    function pgtoLabel(pgto) {
+        if (!pgto) return '';
+        const icons = { pix: '◆', debito: '▣', credito: '◉', dividido: '⊕' };
+        const names = { pix: 'PIX', debito: 'Débito', credito: 'Crédito', dividido: 'Dividido' };
+        if (pgto.tipo === 'credito') {
+            const p = pgto.parcelas || 1;
+            return `<span class="pgto-badge credito">${icons.credito} Crédito ${p > 1 ? p + 'x' : '1x'}</span>`;
+        }
+        if (pgto.tipo === 'dividido' && pgto.parte1) {
+            const n1 = names[pgto.parte1.tipo] || pgto.parte1.tipo;
+            const n2 = names[pgto.parte2.tipo] || pgto.parte2.tipo;
+            const p1 = pgto.parte1.tipo === 'credito' && pgto.parte1.parcelas > 1 ? ` ${pgto.parte1.parcelas}x` : '';
+            const p2 = pgto.parte2.tipo === 'credito' && pgto.parte2.parcelas > 1 ? ` ${pgto.parte2.parcelas}x` : '';
+            const v1 = pgto.parte1.val ? `R$${pgto.parte1.val.toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '';
+            const v2 = pgto.parte2.val ? `R$${pgto.parte2.val.toLocaleString('pt-BR',{minimumFractionDigits:2})}` : '';
+            return `<span class="pgto-badge dividido">⊕ ${n1}${p1} ${v1} + ${n2}${p2} ${v2}</span>`;
+        }
+        return `<span class="pgto-badge ${pgto.tipo}">${icons[pgto.tipo]||''} ${names[pgto.tipo]||pgto.tipo}</span>`;
+    }
+
+    // ===== FIM PAGAMENTO =====
+
+    function getWeekday(dateString) {
+        const days = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+        const d = new Date(dateString + "T12:00:00");
+        return days[d.getDay()];
+    }
+
+    function parseDate(dateStr) {
+        const parts = dateStr.split('-');
+        return { year: parseInt(parts[0]), month: parseInt(parts[1]) - 1, day: parseInt(parts[2]) };
+    }
+
+    function render() {
+        const labelDate = new Date(viewYear, viewMonth, 1);
+        document.getElementById('monthLabel').innerText = new Intl.DateTimeFormat('pt-BR', {month:'long', year:'numeric'}).format(labelDate);
+        
+        const catOpts = db.cats.sort().map(c => `<option value="${c}">${c}</option>`).join('');
+        const gCatAtual = document.getElementById('gCat').value;
+        document.getElementById('gCat').innerHTML = catOpts;
+        if (gCatAtual) document.getElementById('gCat').value = gCatAtual;
+        document.getElementById('fCat').innerHTML = catOpts;
+
+        const filtroCatEl = document.getElementById('filtroCat');
+        const filtroCatAtual = filtroCatEl.value;
+        filtroCatEl.innerHTML = `<option value="">Todas categorias</option>` + catOpts;
+        filtroCatEl.value = filtroCatAtual;
+
+        const filtroTexto = (document.getElementById('filtroTexto').value || '').toLowerCase().trim();
+        const filtroCat = document.getElementById('filtroCat').value;
+        const buscaGlobal = filtroTexto.length > 0;
+
+        const filtrados = db.gastos.filter(g => {
+            const d = parseDate(g.date);
+            const noMes = buscaGlobal || (d.year === viewYear && d.month === viewMonth);
+            const textoOk = !filtroTexto || 
+                g.desc.toLowerCase().includes(filtroTexto) || 
+                (g.obs && g.obs.toLowerCase().includes(filtroTexto)) ||
+                (g.cat && g.cat.toLowerCase().includes(filtroTexto));
+            const catOk = !filtroCat || g.cat === filtroCat;
+            return noMes && textoOk && catOk;
+        });
+
+        const gastosDoMes = db.gastos.filter(g => {
+            const d = parseDate(g.date);
+            return d.year === viewYear && d.month === viewMonth;
+        });
+        const totalG = gastosDoMes.reduce((s, g) => s + parseFloat(g.val), 0);
+        const totalF = db.fixos.reduce((s, f) => s + parseFloat(f.val), 0);
+        document.getElementById('totalDisplay').innerText = `R$ ${(totalG + totalF).toLocaleString('pt-BR', {minimumFractionDigits:2})}`;
+
+        const containerG = document.getElementById('listaGastos');
+        containerG.innerHTML = '';
+
+        const hoje = new Date();
+        const hojeStr = hoje.getFullYear() + '-'
+            + String(hoje.getMonth() + 1).padStart(2, '0') + '-'
+            + String(hoje.getDate()).padStart(2, '0');
+
+        if (buscaGlobal) {
+            containerG.innerHTML += `<div class="busca-global-banner"><i data-lucide="search" size="16"></i> Buscando em todos os meses — ${filtrados.length} resultado(s) encontrado(s)</div>`;
+        }
+
+        if (!buscaGlobal) {
+            const agendados = db.gastos.filter(g => g.date > hojeStr);
+            if (agendados.length > 0) {
+                containerG.innerHTML += `<div class="agendados-banner"><i data-lucide="clock" size="18"></i> ${agendados.length} lançamento(s) agendado(s) para dias futuros</div>`;
+            }
+        }
+
+        if (filtrados.length === 0) {
+            containerG.innerHTML += `<div style="text-align:center; color:var(--text-dim); padding: 40px 0; font-size: 14px; font-weight: 600;">Nenhum lançamento encontrado.</div>`;
+        }
+
+        const grupos = {};
+        filtrados.forEach(g => { if(!grupos[g.date]) grupos[g.date] = []; grupos[g.date].push(g); });
+
+        Object.keys(grupos).sort((a,b) => b > a ? 1 : -1).forEach(date => {
+            const isFuture = date > hojeStr;
+            const totalDia = grupos[date].reduce((s, g) => s + parseFloat(g.val), 0);
+            let groupHtml = `<div class="date-group"><div class="date-header">
+                <span class="txt-date">${date.split('-').reverse().join('/')}</span>
+                <span class="txt-weekday">${getWeekday(date)}</span>
+                ${isFuture ? `<span style="font-size:9px;font-weight:800;color:var(--warning);background:rgba(245,158,11,0.15);padding:2px 8px;border-radius:6px;margin-left:4px;">AGENDADO</span>` : ''}
+                <span style="margin-left:auto; font-size:13px; font-weight:800; color:${isFuture ? 'var(--warning)' : 'var(--accent)'};">R$ ${totalDia.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+            </div>`;
+            grupos[date].forEach(g => {
+                groupHtml += `
+                <div class="item${isFuture ? ' agendado' : ''}">
+                    <div class="item-info">
+                        <b>${g.desc.toUpperCase()}</b>
+                        <span style="font-size:9px; color:${isFuture ? 'var(--warning)' : 'var(--primary)'}; font-weight:700">${g.cat}${isFuture ? ' · AGENDADO' : ''}</span>
+                        ${pgtoLabel(g.pgto)}
+                        ${g.obs ? `<p>Obs: ${g.obs}</p>` : ''}
+                    </div>
+                    <span class="price" style="color:${isFuture ? 'var(--warning)' : '#fff'}">R$ ${parseFloat(g.val).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+                    <div class="actions">
+                        <button class="btn-action edit" onclick="prepareEditGasto(${g.id})"><i data-lucide="edit-3" size="14"></i></button>
+                        <button class="btn-action del" onclick="askDelete(${g.id}, 'gasto')"><i data-lucide="trash-2" size="14"></i></button>
+                    </div>
+                </div>`;
+            });
+            containerG.innerHTML += groupHtml + `</div>`;
+        });
+
+        document.getElementById('listaFixos').innerHTML = db.fixos.map(f => `
+            <div class="item">
+                <div class="item-info"><b>${f.desc.toUpperCase()}</b><span style="font-size:9px; color:var(--secondary); font-weight:700">${f.cat}</span></div>
+                <span class="price">R$ ${parseFloat(f.val).toLocaleString('pt-BR', {minimumFractionDigits:2})}</span>
+                <div class="actions">
+                    <button class="btn-action edit" onclick="prepareEditFixo(${f.id})"><i data-lucide="edit-3" size="14"></i></button>
+                    <button class="btn-action del" onclick="askDelete(${f.id}, 'fixo')"><i data-lucide="trash-2" size="14"></i></button>
+                </div>
+            </div>`).join('');
+
+        document.getElementById('catManagerList').innerHTML = db.cats.sort().map(c => `
+            <div style="background:var(--card-bg); padding:10px 12px; border-radius:10px; border:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; gap:8px; min-height:44px;">
+                <span style="font-size:12px; font-weight:700; flex:1; word-break:break-word; line-height:1.3;">${c}</span>
+                <div style="display:flex; gap:4px; flex-shrink:0;">
+                    <button class="btn-action edit" onclick="openEditCatModal('${c}')" title="Editar"><i data-lucide="edit-3" size="12"></i></button>
+                    <button class="btn-action del" onclick="askDelete('${c}', 'cat')"><i data-lucide="x" size="12"></i></button>
+                </div>
+            </div>`).join('');
+        
+        renderChart(gastosDoMes);
+        renderEvolucao();
+        renderComparativo();
+        lucide.createIcons();
+    }
+
+    function renderChart(gastosNoMes) {
+        let totals = {};
+        db.cats.forEach(c => totals[c] = 0);
+        gastosNoMes.forEach(g => totals[g.cat] += parseFloat(g.val));
+        db.fixos.forEach(f => totals[f.cat] += parseFloat(f.val));
+        const maxVal = Math.max(...Object.values(totals), 1);
+        document.getElementById('chartContainer').innerHTML = Object.entries(totals).filter(x => x[1] > 0).sort((a,b) => b[1] - a[1]).map(([name, val]) => `
+                <div class="chart-row">
+                    <div class="chart-label"><span>${name}</span><span>R$ ${val.toLocaleString('pt-BR', {minimumFractionDigits:2})}</span></div>
+                    <div class="chart-bar-bg"><div class="chart-bar-fill" style="width: ${(val/maxVal)*100}%"></div></div>
+                </div>`).join('') || '<p style="text-align:center; color:var(--text-dim);">Sem dados no período.</p>';
+    }
+
+    let toastTimer = null;
+    function showToast(msg, type = 'success') {
+        const t = document.getElementById('toast');
+        document.getElementById('toastIcon').innerText = type === 'success' ? '✓' : '✕';
+        document.getElementById('toastMsg').innerText = msg;
+        t.className = 'show ' + type;
+        if (toastTimer) clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => { t.className = ''; }, 2800);
+    }
+
+    function formatarValor(input) {
+        input.value = input.value.replace(/[^0-9.,]/g, '');
+    }
+    function getValorNumerico(id) {
+        const v = document.getElementById(id).value.replace(',', '.');
+        return parseFloat(v);
+    }
+
+    function saveGasto() {
+        const id = document.getElementById('editId').value;
+        const desc = document.getElementById('gDesc').value.trim();
+        const val = getValorNumerico('gVal');
+        if(!desc || isNaN(val) || val <= 0) { showToast('Preencha descrição e valor.', 'warning'); return; }
+        const isEdicao = !!id;
+        const pgto = getPgtoData();
+        const data = { id: id ? parseInt(id) : Date.now(), desc, val, cat: document.getElementById('gCat').value, date: document.getElementById('gDate').value, obs: document.getElementById('gObs').value, pgto };
+        if(id) db.gastos = db.gastos.map(g => g.id == id ? data : g); else db.gastos.push(data);
+
+        const partes = data.date.split('-');
+        viewYear = parseInt(partes[0]);
+        viewMonth = parseInt(partes[1]) - 1;
+
+        ['gDesc','gVal','gObs','editId'].forEach(f => document.getElementById(f).value = '');
+        document.getElementById('gParcelas').value = 1;
+        updateParcelasLabel();
+        document.getElementById('gDiv1Val').value = '';
+        document.getElementById('gDiv2Val').value = '';
+        document.getElementById('dividido-aviso').innerText = '';
+        // Reset ao PIX
+        selectPgto('pix', document.querySelector('.pgto-btn[data-pgto="pix"]'));
+
+        const btn = document.getElementById('btnGasto');
+        btn.innerText = "SALVAR LANÇAMENTO";
+        btn.style.background = "var(--primary)";
+        btn.style.color = "#000";
+
+        render();
+        sync();
+        showToast(isEdicao ? 'Lançamento atualizado!' : 'Lançamento salvo!');
+    }
+
+    function prepareEditGasto(id) {
+        const g = db.gastos.find(x => x.id == id);
+        document.getElementById('editId').value = g.id;
+        document.getElementById('gDesc').value = g.desc;
+        document.getElementById('gVal').value = parseFloat(g.val).toFixed(2).replace('.', ',');
+        document.getElementById('gCat').value = g.cat;
+        document.getElementById('gDate').value = g.date;
+        document.getElementById('gObs').value = g.obs || '';
+        setPgtoForm(g.pgto);
+        document.getElementById('btnGasto').innerText = "ATUALIZAR";
+        document.getElementById('btnGasto').style.background = "var(--warning)";
+        document.getElementById('btnGasto').style.color = "#000";
+        const partes = g.date.split('-');
+        viewYear = parseInt(partes[0]);
+        viewMonth = parseInt(partes[1]) - 1;
+        render();
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    function saveFixo() {
+        const id = document.getElementById('editFixoId').value;
+        const desc = document.getElementById('fDesc').value.trim();
+        const val = getValorNumerico('fVal');
+        if(!desc || isNaN(val) || val <= 0) { showToast('Preencha descrição e valor.', 'warning'); return; }
+        const isEdicao = !!id;
+        const data = { id: id ? parseInt(id) : Date.now(), desc, val, cat: document.getElementById('fCat').value };
+        if(id) db.fixos = db.fixos.map(f => f.id == id ? data : f); else db.fixos.push(data);
+        sync(); render();
+        ['fDesc','fVal','editFixoId'].forEach(i => document.getElementById(i).value = '');
+        const btn = document.getElementById('btnFixo');
+        btn.innerText = "SALVAR CONTA FIXA"; btn.style.background = "var(--secondary)"; btn.style.color = "#fff";
+        showToast(isEdicao ? 'Conta fixa atualizada!' : 'Conta fixa salva!');
+    }
+
+    function prepareEditFixo(id) {
+        const f = db.fixos.find(x => x.id == id);
+        document.getElementById('editFixoId').value = f.id; 
+        document.getElementById('fDesc').value = f.desc;
+        document.getElementById('fVal').value = parseFloat(f.val).toFixed(2).replace('.', ',');
+        document.getElementById('fCat').value = f.cat;
+        const btnFixo = document.getElementById('btnFixo');
+        btnFixo.innerText = "ATUALIZAR CONTA FIXA"; btnFixo.style.background = "var(--warning)"; btnFixo.style.color = "#000";
+        window.scrollTo({top: 0, behavior: 'smooth'});
+    }
+
+    function addCat() {
+        const v = document.getElementById('newCatInput').value.toUpperCase().trim();
+        if(v && !db.cats.includes(v)) { db.cats.push(v); sync(); document.getElementById('newCatInput').value = ''; }
+    }
+
+    function askDelete(id, type) { pendingDelete = {id, type}; document.getElementById('confirmModal').classList.add('active'); }
+    function closeModal() { document.getElementById('confirmModal').classList.remove('active'); }
+    document.getElementById('confirmDeleteBtn').onclick = () => {
+        const tipo = pendingDelete.type;
+        if(tipo === 'gasto') db.gastos = db.gastos.filter(x => x.id != pendingDelete.id);
+        else if(tipo === 'fixo') db.fixos = db.fixos.filter(x => x.id != pendingDelete.id);
+        else if(tipo === 'cat') db.cats = db.cats.filter(x => x != pendingDelete.id);
+        sync(); closeModal();
+        const msgs = { gasto: 'Lançamento excluído.', fixo: 'Conta fixa excluída.', cat: 'Categoria excluída.' };
+        showToast(msgs[tipo] || 'Excluído.', 'warning');
+    };
+
+    function switchTab(id, btn) {
+        document.querySelectorAll('.content-area').forEach(a => a.classList.remove('active'));
+        document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(id).classList.add('active');
+        btn.classList.add('active');
+        lucide.createIcons();
+    }
+
+    function changeMonth(s) {
+        viewMonth += s;
+        if (viewMonth > 11) { viewMonth = 0; viewYear++; }
+        if (viewMonth < 0) { viewMonth = 11; viewYear--; }
+        render();
+    }
+
+    function renderEvolucao() {
+        const meses = [];
+        for (let i = 5; i >= 0; i--) {
+            let m = viewMonth - i; let y = viewYear;
+            while (m < 0) { m += 12; y--; }
+            const d = new Date(y, m, 1);
+            const total = db.gastos.filter(g => { const gd = parseDate(g.date); return gd.year === y && gd.month === m; }).reduce((s,g)=>s+parseFloat(g.val),0)
+                        + db.fixos.reduce((s,f)=>s+parseFloat(f.val),0);
+            meses.push({ label: new Intl.DateTimeFormat('pt-BR',{month:'short'}).format(d), total });
+        }
+        const maxVal = Math.max(...meses.map(m=>m.total), 1);
+
+        const barsHtml = `<div id="evolucaoChartBars" style="display:flex; align-items:flex-end; gap:8px; height:100px; width:100%;">
+            ${meses.map((m,i) => {
+                const h = Math.max((m.total/maxVal)*90, m.total>0?4:0);
+                const isAtual = i===5;
+                return '<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;">'
+                    + '<span style="font-size:9px;font-weight:800;color:var(--text-dim);">R$ ' + m.total.toLocaleString('pt-BR',{minimumFractionDigits:2}) + '</span>'
+                    + '<div style="width:100%;height:' + h + 'px;background:' + (isAtual?'linear-gradient(180deg,var(--primary),var(--accent))':'rgba(56,189,248,0.25)') + ';border-radius:6px 6px 0 0;transition:height 0.5s;"></div>'
+                    + '<span style="font-size:9px;font-weight:800;color:' + (isAtual?'var(--primary)':'var(--text-dim)') + ';text-transform:uppercase;">' + m.label + '</span>'
+                    + '</div>';
+            }).join('')}
+        </div>`;
+
+        const mobileHtml = '<div class="evolucao-mobile">'
+            + meses.map((m, i) => {
+                const isAtual = i === 5;
+                const pct = maxVal > 0 ? Math.max((m.total/maxVal)*100, m.total>0?2:0) : 0;
+                const barColor = isAtual ? 'linear-gradient(90deg,var(--primary),var(--accent))' : 'rgba(56,189,248,0.3)';
+                return '<div class="evolucao-mobile-item">'
+                    + '<span class="evolucao-mobile-label' + (isAtual?' atual':'') + '">' + m.label + '</span>'
+                    + '<div class="evolucao-mobile-bar-wrap"><div class="evolucao-mobile-bar" style="width:' + pct + '%;background:' + barColor + ';"></div></div>'
+                    + '<span class="evolucao-mobile-val">R$ ' + m.total.toLocaleString('pt-BR',{minimumFractionDigits:2}) + '</span>'
+                    + '</div>';
+            }).join('')
+            + '</div>';
+
+        document.getElementById('evolucaoChart').innerHTML = barsHtml + mobileHtml;
+    }
+
+    function renderComparativo() {
+        const y = viewYear, m = viewMonth;
+        let mAnt = m - 1, yAnt = y;
+        if (mAnt < 0) { mAnt = 11; yAnt--; }
+        const dAnt = new Date(yAnt, mAnt, 1);
+        const totalAtual = db.gastos.filter(g=>{const d=parseDate(g.date); return d.year===y && d.month===m;}).reduce((s,g)=>s+parseFloat(g.val),0) + db.fixos.reduce((s,f)=>s+parseFloat(f.val),0);
+        const totalAnt = db.gastos.filter(g=>{const d=parseDate(g.date); return d.year===yAnt && d.month===mAnt;}).reduce((s,g)=>s+parseFloat(g.val),0) + db.fixos.reduce((s,f)=>s+parseFloat(f.val),0);
+        const diff = totalAtual - totalAnt;
+        const pct = totalAnt > 0 ? ((diff/totalAnt)*100).toFixed(1) : null;
+        const mesAtual = new Intl.DateTimeFormat('pt-BR',{month:'long'}).format(new Date(y, m, 1));
+        const mesAnt = new Intl.DateTimeFormat('pt-BR',{month:'long'}).format(dAnt);
+        const cor = diff > 0 ? 'var(--danger)' : diff < 0 ? 'var(--accent)' : 'var(--text-dim)';
+        const seta = diff > 0 ? '▲' : diff < 0 ? '▼' : '●';
+        document.getElementById('comparativoContainer').innerHTML = `
+            <div style="font-size:11px;font-weight:800;color:var(--text-dim);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:14px;">Comparativo de meses</div>
+            <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div><div style="font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">${mesAnt}</div><div style="font-size:1.2rem;font-weight:800;color:#fff;">R$ ${totalAnt.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+                <div style="text-align:center;"><div style="font-size:1.4rem;color:${cor};">${seta}</div><div style="font-size:12px;font-weight:800;color:${cor};">${pct !== null ? (diff>0?'+':'')+pct+'%' : '—'}</div></div>
+                <div style="text-align:right;"><div style="font-size:10px;font-weight:700;color:var(--text-dim);text-transform:uppercase;">${mesAtual}</div><div style="font-size:1.2rem;font-weight:800;color:#fff;">R$ ${totalAtual.toLocaleString('pt-BR',{minimumFractionDigits:2})}</div></div>
+            </div>`;
+    }
+
+    function exportarPDF() {
+        const y = viewYear, m = viewMonth;
+        const mesLabel = new Intl.DateTimeFormat('pt-BR',{month:'long',year:'numeric'}).format(new Date(y, m, 1));
+        const filtrados = db.gastos.filter(g=>{const d=parseDate(g.date); return d.year===y && d.month===m;}).sort((a,b)=> a.date > b.date ? 1 : -1);
+        const totalG = filtrados.reduce((s,g)=>s+parseFloat(g.val),0);
+        const totalF = db.fixos.reduce((s,f)=>s+parseFloat(f.val),0);
+        const pgtoStr = (pgto) => {
+            if (!pgto) return '';
+            if (pgto.tipo === 'credito') return `Crédito ${pgto.parcelas||1}x`;
+            if (pgto.tipo === 'dividido' && pgto.parte1) {
+                const n = {pix:'PIX',debito:'Débito',credito:'Crédito'};
+                return `${n[pgto.parte1.tipo]||pgto.parte1.tipo} R$${pgto.parte1.val.toLocaleString('pt-BR',{minimumFractionDigits:2})} + ${n[pgto.parte2.tipo]||pgto.parte2.tipo} R$${pgto.parte2.val.toLocaleString('pt-BR',{minimumFractionDigits:2})}`;
+            }
+            return {pix:'PIX',debito:'Débito',credito:'Crédito'}[pgto.tipo] || pgto.tipo;
+        };
+        const linhas = filtrados.map(g=>`<tr><td>${g.date.split('-').reverse().join('/')}</td><td>${g.desc.toUpperCase()}</td><td>${g.cat}</td><td>${pgtoStr(g.pgto)}</td><td style="text-align:right;">R$ ${parseFloat(g.val).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>`).join('');
+        const fixosLinhas = db.fixos.map(f=>`<tr><td colspan="3">${f.desc.toUpperCase()}</td><td>${f.cat}</td><td style="text-align:right;">R$ ${parseFloat(f.val).toLocaleString('pt-BR',{minimumFractionDigits:2})}</td></tr>`).join('');
+        const html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Relatório ${mesLabel}</title>
+        <style>body{font-family:sans-serif;padding:30px;color:#111;}h1{font-size:20px;margin-bottom:4px;}h2{font-size:14px;margin:20px 0 8px;color:#555;}table{width:100%;border-collapse:collapse;font-size:13px;}th{background:#0f172a;color:#fff;padding:8px;}td{padding:7px;border-bottom:1px solid #ddd;}.total{font-weight:bold;font-size:15px;margin-top:16px;text-align:right;}</style></head>
+        <body><h1>Fluxo de Caixa — ${mesLabel}</h1>
+        <h2>Lançamentos</h2><table><tr><th>Data</th><th>Descrição</th><th>Categoria</th><th>Pagamento</th><th>Valor</th></tr>${linhas}</table>
+        ${db.fixos.length?`<h2>Custos Fixos</h2><table><tr><th colspan="3">Descrição</th><th>Categoria</th><th>Valor</th></tr>${fixosLinhas}</table>`:''}
+        <p class="total">Total Lançamentos: R$ ${totalG.toLocaleString('pt-BR',{minimumFractionDigits:2})}</p>
+        <p class="total">Total Fixos: R$ ${totalF.toLocaleString('pt-BR',{minimumFractionDigits:2})}</p>
+        <p class="total">TOTAL GERAL: R$ ${(totalG+totalF).toLocaleString('pt-BR',{minimumFractionDigits:2})}</p>
+        </body></html>`;
+        const w = window.open('','_blank'); w.document.write(html); w.document.close(); w.print();
+    }
+
+    function openEditCatModal(cat) {
+        document.getElementById('editCatOld').value = cat;
+        document.getElementById('editCatNew').value = cat;
+        document.getElementById('editCatModal').classList.add('active');
+    }
+    function closeEditCatModal() { document.getElementById('editCatModal').classList.remove('active'); }
+    function saveEditCat() {
+        const oldName = document.getElementById('editCatOld').value;
+        const newName = document.getElementById('editCatNew').value.toUpperCase().trim();
+        if (!newName || newName === oldName) { closeEditCatModal(); return; }
+        if (db.cats.includes(newName)) { alert('Categoria já existe!'); return; }
+        db.cats = db.cats.map(c => c === oldName ? newName : c);
+        db.gastos = db.gastos.map(g => g.cat === oldName ? {...g, cat: newName} : g);
+        db.fixos = db.fixos.map(f => f.cat === oldName ? {...f, cat: newName} : f);
+        sync();
+        closeEditCatModal();
+    }
+</script>
+</body>
+</html>
